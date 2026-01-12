@@ -27,37 +27,129 @@ function SubscriptionContent() {
     setProcessingPlan(planId)
 
     try {
-      // Simulate Razorpay payment process
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const plan = SUBSCRIPTION_PLANS[planId]
 
-      // Calculate subscription dates
-      const startDate = new Date().toISOString()
-      const endDate = new Date()
-      endDate.setMonth(endDate.getMonth() + 1)
+      // 1. Create order on the server
+      const apiUrl = `${window.location.origin}/api/razorpay/order`;
+      console.log(`Creating Razorpay order at ${apiUrl}...`);
+      let response;
+      try {
+        response = await fetch(apiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: plan.price, planId }),
+        })
+      } catch (fetchErr: any) {
+        console.error("Fetch call failed:", fetchErr);
+        toast.error(`Network error: ${fetchErr.message}. Are you on http://localhost:3001?`);
+        throw fetchErr;
+      }
 
-      // Update user's subscription in Firestore
-      await setDoc(
-        doc(db, "users", user.uid),
-        {
-          subscription: {
-            planId,
-            status: "active",
-            startDate,
-            endDate: endDate.toISOString(),
-            paymentId: `mock_${Date.now()}`,
-          },
-        },
-        { merge: true }
-      )
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Order creation failed:", response.status, errorData);
+        throw new Error(`Server error: ${response.status} ${JSON.stringify(errorData)}`)
+      }
 
-      toast.success(`Successfully subscribed to ${SUBSCRIPTION_PLANS[planId].name} plan!`, {
-        description: "Razorpay integration will be added later. Refreshing...",
+      const order = await response.json()
+      console.log("Order created:", order);
+
+      // 2. Load Razorpay script
+      const res = await new Promise((resolve) => {
+        const script = document.createElement("script")
+        script.src = "https://checkout.razorpay.com/v1/checkout.js"
+        script.onload = () => resolve(true)
+        script.onerror = () => resolve(false)
+        document.body.appendChild(script)
       })
 
-      // Reload to refresh user data
-      setTimeout(() => {
-        window.location.reload()
-      }, 1500)
+      if (!res) {
+        toast.error("Razorpay SDK failed to load. Are you online?")
+        return
+      }
+
+      // 3. Open Razorpay checkout
+      const razorpayKey = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID;
+
+      if (!razorpayKey) {
+        toast.error("Razorpay Key is missing in configuration. Please check your .env file and restart the server.");
+        return;
+      }
+
+      const options = {
+        key: razorpayKey,
+        amount: order.amount,
+        currency: order.currency,
+        name: "Asrock Mobile Services",
+        description: `${plan.name} Subscription`,
+        order_id: order.id,
+        handler: async function (response: any) {
+          try {
+            // 4. Verify payment on the server
+            const verifyRes = await fetch(`${window.location.origin}/api/razorpay/verify`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                email: user?.email,
+                userName: user?.name,
+                planName: plan.name,
+              }),
+            })
+
+            const verifyData = await verifyRes.json()
+
+            if (verifyData.success) {
+              // 5. Update user's subscription in Firestore
+              const startDate = new Date().toISOString()
+              const endDate = new Date()
+              endDate.setMonth(endDate.getMonth() + 1)
+
+              await setDoc(
+                doc(db, "users", user.uid),
+                {
+                  subscription: {
+                    planId,
+                    status: "active",
+                    startDate,
+                    endDate: endDate.toISOString(),
+                    paymentId: response.razorpay_payment_id,
+                    orderId: response.razorpay_order_id,
+                  },
+                },
+                { merge: true }
+              )
+
+              toast.success(`Successfully subscribed to ${plan.name} plan!`)
+
+              setTimeout(() => {
+                window.location.reload()
+              }, 1500)
+            } else {
+              toast.error("Payment verification failed")
+            }
+          } catch (error) {
+            console.error("Verification error:", error)
+            toast.error("Error verifying payment")
+          }
+        },
+        prefill: {
+          name: user?.name || "",
+          email: user?.email || "",
+        },
+        theme: {
+          color: "#2563eb",
+        },
+      }
+
+      const rzp = new (window as any).Razorpay(options)
+      rzp.on("payment.failed", function (response: any) {
+        toast.error("Payment failed: " + response.error.description)
+      })
+      rzp.open()
+
     } catch (error) {
       console.error("Subscription error:", error)
       toast.error("Failed to process subscription. Please try again.")
@@ -128,9 +220,8 @@ function SubscriptionContent() {
           return (
             <Card
               key={planId}
-              className={`relative overflow-hidden transition-all duration-300 ${colors.bg} ${colors.border} ${
-                plan.recommended ? "ring-2 ring-blue-500 shadow-lg scale-105" : "hover:shadow-md"
-              }`}
+              className={`relative overflow-hidden transition-all duration-300 ${colors.bg} ${colors.border} ${plan.recommended ? "ring-2 ring-blue-500 shadow-lg scale-105" : "hover:shadow-md"
+                }`}
             >
               {plan.recommended && (
                 <div className="absolute top-0 left-0 right-0 bg-blue-500 text-white text-xs font-bold text-center py-1">
@@ -171,13 +262,12 @@ function SubscriptionContent() {
                 <Button
                   onClick={() => handleSubscribe(planId)}
                   disabled={isCurrentPlan || !!processingPlan}
-                  className={`w-full ${
-                    isCurrentPlan
-                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                      : plan.recommended
+                  className={`w-full ${isCurrentPlan
+                    ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                    : plan.recommended
                       ? "bg-blue-600 hover:bg-blue-700 text-white"
                       : "bg-slate-900 hover:bg-slate-800 text-white"
-                  }`}
+                    }`}
                 >
                   {isProcessing ? (
                     <>
@@ -202,7 +292,7 @@ function SubscriptionContent() {
           All plans include: Inventory Management, Product Listing, Company Page, Profile, and Dashboard.
         </p>
         <p className="text-xs text-slate-400 mt-2">
-          Razorpay payment integration will be configured. Currently using mock payments.
+          Secure payment processing by Razorpay.
         </p>
       </div>
     </div>
