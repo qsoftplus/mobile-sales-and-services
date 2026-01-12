@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Check, Crown, Sparkles, Zap, Loader2 } from "lucide-react"
+import { Check, Crown, Sparkles, Zap, Loader2, Gift } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -20,6 +20,10 @@ function SubscriptionContent() {
   const { user } = useAuth()
   const { planId: currentPlanId, isActive } = useSubscription()
   const [processingPlan, setProcessingPlan] = useState<PlanId | null>(null)
+  const [trialPlan, setTrialPlan] = useState<PlanId | null>(null)
+
+  // Check if user is new (no subscription history)
+  const isNewUser = !user?.subscription
 
   const handleSubscribe = async (planId: PlanId) => {
     if (!user) return
@@ -158,6 +162,50 @@ function SubscriptionContent() {
     }
   }
 
+  const handleActivateTrial = async (planId: PlanId) => {
+    if (!user) return
+
+    setTrialPlan(planId)
+
+    try {
+      const plan = SUBSCRIPTION_PLANS[planId]
+      // Calculate trial dates (1 month free)
+      const startDate = new Date().toISOString()
+      const endDate = new Date()
+      endDate.setMonth(endDate.getMonth() + 1)
+
+      // Set trial subscription with selected plan
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          subscription: {
+            planId,
+            status: "trial",
+            startDate,
+            endDate: endDate.toISOString(),
+            trialUsed: true,
+            paymentId: null,
+            orderId: null,
+          },
+        },
+        { merge: true }
+      )
+
+      toast.success(`🎉 Free trial activated for ${plan.name} plan!`, {
+        description: "Enjoy 1 month free. After trial ends, you'll be charged " + formatPrice(plan.price) + "/month."
+      })
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
+    } catch (error) {
+      console.error("Trial activation error:", error)
+      toast.error("Failed to activate trial. Please try again.")
+    } finally {
+      setTrialPlan(null)
+    }
+  }
+
   const planIcons: Record<PlanId, typeof Zap> = {
     basic: Zap,
     pro: Sparkles,
@@ -188,14 +236,27 @@ function SubscriptionContent() {
       <div className="text-center mb-12">
         <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full border border-primary/20 mb-4">
           <Crown className="w-4 h-4 text-primary" />
-          <span className="text-sm font-medium text-primary">Choose Your Plan</span>
+          <span className="text-sm font-medium text-primary">
+            {isNewUser ? "Welcome! Choose Your Plan" : "Manage Subscription"}
+          </span>
         </div>
         <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
-          Simple, Transparent Pricing
+          {isNewUser ? "Start with 1 Month Free Trial" : "Simple, Transparent Pricing"}
         </h1>
         <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-          Select the plan that fits your business needs. Upgrade or downgrade anytime.
+          {isNewUser 
+            ? "Choose your plan and get 1 month free. After trial, you'll be charged automatically."
+            : "Select the plan that fits your business needs. Upgrade or downgrade anytime."
+          }
         </p>
+        {isNewUser && (
+          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-emerald-50 rounded-full border border-emerald-200">
+            <Gift className="w-4 h-4 text-emerald-600" />
+            <span className="text-sm font-medium text-emerald-700">
+              1 Month Free Trial on Any Plan • No Card Required
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Current Plan Badge */}
@@ -258,28 +319,57 @@ function SubscriptionContent() {
                   ))}
                 </ul>
 
-                {/* Action Button */}
-                <Button
-                  onClick={() => handleSubscribe(planId)}
-                  disabled={isCurrentPlan || !!processingPlan}
-                  className={`w-full ${isCurrentPlan
-                    ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                    : plan.recommended
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "bg-slate-900 hover:bg-slate-800 text-white"
-                    }`}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : isCurrentPlan ? (
-                    "Current Plan"
-                  ) : (
-                    `Subscribe to ${plan.name}`
+                {/* Action Buttons */}
+                <div className="space-y-2">
+                  {/* Free Trial Button - Only for new users */}
+                  {isNewUser && (
+                    <Button
+                      onClick={() => handleActivateTrial(planId)}
+                      disabled={!!trialPlan || !!processingPlan}
+                      className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {trialPlan === planId ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Activating...
+                        </>
+                      ) : (
+                        <>
+                          <Gift className="w-4 h-4 mr-2" />
+                          Start Free Trial
+                        </>
+                      )}
+                    </Button>
                   )}
-                </Button>
+                  
+                  {/* Subscribe Button */}
+                  <Button
+                    onClick={() => handleSubscribe(planId)}
+                    disabled={isCurrentPlan || !!processingPlan || !!trialPlan}
+                    variant={isNewUser ? "outline" : "default"}
+                    className={`w-full ${isCurrentPlan
+                      ? "bg-slate-200 text-slate-500 cursor-not-allowed"
+                      : isNewUser
+                        ? "border-slate-300 text-slate-700 hover:bg-slate-100"
+                        : plan.recommended
+                          ? "bg-blue-600 hover:bg-blue-700 text-white"
+                          : "bg-slate-900 hover:bg-slate-800 text-white"
+                      }`}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : isCurrentPlan ? (
+                      "Current Plan"
+                    ) : isNewUser ? (
+                      `Pay ${formatPrice(plan.price)}/month Now`
+                    ) : (
+                      `Subscribe to ${plan.name}`
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )
@@ -292,7 +382,10 @@ function SubscriptionContent() {
           All plans include: Inventory Management, Product Listing, Company Page, Profile, and Dashboard.
         </p>
         <p className="text-xs text-slate-400 mt-2">
-          Secure payment processing by Razorpay.
+          {isNewUser 
+            ? "Free trial for 1 month. After trial, auto-payment starts. Yearly renewal thereafter."
+            : "Secure payment processing by Razorpay."
+          }
         </p>
       </div>
     </div>

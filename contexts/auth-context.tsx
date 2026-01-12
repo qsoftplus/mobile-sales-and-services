@@ -131,10 +131,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Redirect logic based on auth status
+    // Redirect logic based on auth status and subscription
     if (!isLoading) {
       const publicPaths = ["/", "/login", "/register", "/forgot-password"]
       const isPublicPath = publicPaths.includes(pathname)
+      const isSubscriptionPath = pathname === "/subscription"
       
       // Admin paths have their own authentication - don't interfere
       const isAdminPath = pathname.startsWith("/admin")
@@ -144,12 +145,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!user && !isPublicPath) {
         router.push("/")
-      } else if (user && isPublicPath && pathname !== "/dashboard") {
-        // Admins go to admin dashboard, regular users go to user dashboard
-        if (user.role === "admin") {
-          router.push("/admin/dashboard")
-        } else {
-          router.push("/dashboard")
+      } else if (user) {
+        // Check if user has an active subscription
+        const hasActiveSubscription = 
+          user.subscription?.status === "active" || 
+          user.subscription?.status === "trial"
+        
+        if (isPublicPath && pathname !== "/dashboard") {
+          // Logged in user on public path - redirect appropriately
+          if (user.role === "admin") {
+            router.push("/admin/dashboard")
+          } else if (!hasActiveSubscription) {
+            // New user without subscription - go to subscription page
+            router.push("/subscription")
+          } else {
+            router.push("/dashboard")
+          }
+        } else if (!hasActiveSubscription && !isSubscriptionPath && user.role !== "admin") {
+          // User without subscription trying to access protected pages - redirect to subscription
+          router.push("/subscription")
         }
       }
     }

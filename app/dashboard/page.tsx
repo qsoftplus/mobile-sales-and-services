@@ -25,6 +25,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
   Area,
   AreaChart,
   XAxis,
@@ -47,11 +57,13 @@ import {
   ArrowDownRight,
   MoreHorizontal,
   Calendar,
-  Filter,
+
   Download,
   Eye,
   Edit,
-  FileText
+  FileText,
+  Trash2,
+  MoreVertical
 } from "lucide-react"
 import { toast } from "sonner"
 import { InvoiceGenerator, jobCardToInvoiceData } from "@/features/invoice-templates"
@@ -129,12 +141,14 @@ export default function DashboardPage() {
   const router = useRouter()
   const { isAuthenticated } = useAuth()
   const { company } = useCompany()
-  const { getJobCards } = useFirestore()
+  const { getJobCards, deleteJobCard } = useFirestore()
   const [allJobCards, setAllJobCards] = useState<JobCard[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [timeRange, setTimeRange] = useState("all")
   const [selectedJob, setSelectedJob] = useState<JobCard | null>(null)
   const [isSheetOpen, setIsSheetOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [jobToDelete, setJobToDelete] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchJobCards = async () => {
@@ -241,10 +255,11 @@ export default function DashboardPage() {
   }, [filteredJobs])
 
   const recentJobs = useMemo(() => {
-    return [...filteredJobs]
+    return [...allJobCards]
+      .filter(job => job.createdAt)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 10)
-  }, [filteredJobs])
+  }, [allJobCards])
 
   const formatCurrency = (val: number) => 
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
@@ -286,6 +301,22 @@ export default function DashboardPage() {
   const handleViewAll = () => router.push("/job-cards")
   const handleEditJob = (jobId: string) => router.push(`/job-cards/${jobId}/edit`)
 
+  const handleDeleteConfirm = async () => {
+    if (!jobToDelete) return
+    
+    try {
+      await deleteJobCard(jobToDelete)
+      setAllJobCards(prev => prev.filter(job => job.id !== jobToDelete))
+      toast.success("Service request deleted successfully")
+    } catch (error) {
+      console.error("Failed to delete job:", error)
+      toast.error("Failed to delete service request")
+    } finally {
+      setDeleteDialogOpen(false)
+      setJobToDelete(null)
+    }
+  }
+
   return (
     <PageLayout>
       <div className="min-h-screen bg-slate-50/50 p-6 space-y-8">
@@ -308,9 +339,7 @@ export default function DashboardPage() {
                 <SelectItem value="all">All Time</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon" className="bg-white border-slate-200" title="Filter">
-              <Filter className="w-4 h-4 text-slate-500" />
-            </Button>
+
             <Button className="bg-primary hover:bg-primary/90" onClick={handleExport}>
               <Download className="w-4 h-4 mr-2" /> 
               Export Report
@@ -568,7 +597,7 @@ export default function DashboardPage() {
                   <th className="px-6 py-3">Amount</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-4 py-3 text-center">View</th>
-                  <th className="px-4 py-3 text-center">Edit</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -632,14 +661,33 @@ export default function DashboardPage() {
                         </Button>
                       </td>
                       <td className="px-4 py-4 text-center">
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8 text-slate-400 hover:text-slate-600"
-                          onClick={() => handleEditJob(job.id)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-slate-400 hover:text-slate-600"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditJob(job.id)}>
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => {
+                                setJobToDelete(job.id)
+                                setDeleteDialogOpen(true)
+                              }}
+                              className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </td>
                     </tr>
                   ))
@@ -887,6 +935,26 @@ export default function DashboardPage() {
           </SheetContent>
         </Sheet>
       </div>
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="rounded-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this service request? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive hover:bg-destructive/90 rounded-xl"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </PageLayout>
   )
 }

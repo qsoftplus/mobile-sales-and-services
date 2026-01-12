@@ -15,6 +15,7 @@ import { DeviceInfoSection } from "./device-info-section"
 import { ProblemDiagnosisSection } from "./problem-diagnosis-section"
 import { CostEstimateSection } from "./cost-estimate-section"
 import { CustomerHistoryCard } from "./customer-history-card"
+import { ImageUpgradeCard } from "./image-upgrade-card"
 import { User, Smartphone, Wrench, IndianRupee, CheckCircle2, Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -118,6 +119,9 @@ export function JobCardForm({ onSuccess, onFormChange, initialData, mode = "crea
       })
       if (initialData.conditionImages) {
         setConditionImages(initialData.conditionImages)
+      }
+      if (initialData.phone) {
+        setSelectedCustomerPhone(initialData.phone)
       }
     }
   }, [initialData, mode, form])
@@ -338,15 +342,27 @@ export function JobCardForm({ onSuccess, onFormChange, initialData, mode = "crea
                   </>
                 )}
               </Button>
+              
+              {/* Image Upgrade Card - Mobile Only (below submit button) */}
+              <div className="lg:hidden mt-4">
+                <ImageUpgradeCard />
+              </div>
             </form>
           </Form>
         </Card>
       </div>
       
-      {/* Customer History - Mobile: Top, Desktop: Right side */}
+      {/* Sidebar - Desktop: Right side with sticky positioning */}
       <div className="w-full lg:w-80 shrink-0 order-first lg:order-last">
-        <div className="lg:sticky lg:top-4">
-          <CustomerHistoryCard customerPhone={selectedCustomerPhone} />
+        <div className="lg:sticky lg:top-4 flex flex-col gap-4">
+          <CustomerHistoryCard 
+            customerPhone={selectedCustomerPhone} 
+            excludeJobId={mode === "edit" ? initialData?.id : null}
+          />
+          {/* Image Upgrade Card - Desktop Only (in sidebar) */}
+          <div className="hidden lg:block">
+            <ImageUpgradeCard />
+          </div>
         </div>
       </div>
     </div>

@@ -77,6 +77,14 @@ export function useFirestore() {
     [checkAuth]
   )
 
+  const deleteJobCard = useCallback(
+    async (id: string) => {
+      const userId = checkAuth()
+      return firebaseService.delete(userId, COLLECTIONS.JOB_CARDS, id)
+    },
+    [checkAuth]
+  )
+
   // Invoices
   const createInvoice = useCallback(
     async (data: Omit<Invoice, "id">) => {
@@ -138,6 +146,7 @@ export function useFirestore() {
     createJobCard,
     getJobCards,
     updateJobCard,
+    deleteJobCard,
 
     // Invoices
     createInvoice,

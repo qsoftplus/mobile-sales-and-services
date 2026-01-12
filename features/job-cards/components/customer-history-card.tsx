@@ -25,10 +25,11 @@ interface JobCardHistory {
 
 interface CustomerHistoryCardProps {
   customerPhone: string | null
+  excludeJobId?: string | null
   className?: string
 }
 
-export function CustomerHistoryCard({ customerPhone, className }: CustomerHistoryCardProps) {
+export function CustomerHistoryCard({ customerPhone, excludeJobId, className }: CustomerHistoryCardProps) {
   const [history, setHistory] = React.useState<JobCardHistory[]>([])
   const [loading, setLoading] = React.useState(false)
   const { user } = useAuth()
@@ -48,9 +49,9 @@ export function CustomerHistoryCard({ customerPhone, className }: CustomerHistor
           COLLECTIONS.JOB_CARDS
         )
         
-        // Filter by customer phone and sort by date
+        // Filter by customer phone, exclude current job if editing, and sort by date
         const customerHistory = allJobCards
-          .filter((jc) => jc.phone === customerPhone)
+          .filter((jc) => jc.phone === customerPhone && jc.id !== excludeJobId)
           .slice(0, 10) // Show max 10 recent entries
         
         setHistory(customerHistory)
@@ -62,7 +63,7 @@ export function CustomerHistoryCard({ customerPhone, className }: CustomerHistor
     }
 
     fetchCustomerHistory()
-  }, [user?.uid, customerPhone])
+  }, [user?.uid, customerPhone, excludeJobId])
 
   // Don't render if no customer selected
   if (!customerPhone) {

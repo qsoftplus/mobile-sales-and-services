@@ -25,7 +25,7 @@ export function useSubscription() {
     return checkHasFeature(planId, feature)
   }
 
-  const getLimit = (feature: "maxThemes" | "maxJobImages"): number => {
+  const getLimit = (feature: "maxThemes" | "maxJobImages" | "maxTemplates"): number => {
     if (!isActive || !planId) return 0
     return getFeatureLimit(planId, feature)
   }
@@ -44,6 +44,10 @@ export function useSubscription() {
 
   const getMaxThemes = (): number => {
     return getLimit("maxThemes")
+  }
+
+  const getMaxTemplates = (): number => {
+    return getLimit("maxTemplates")
   }
 
   const isSubscribed = (): boolean => {
@@ -65,6 +69,7 @@ export function useSubscription() {
     canUploadJobImages,
     getMaxJobImages,
     getMaxThemes,
+    getMaxTemplates,
     isSubscribed,
     needsSubscription,
     allPlans: SUBSCRIPTION_PLANS,

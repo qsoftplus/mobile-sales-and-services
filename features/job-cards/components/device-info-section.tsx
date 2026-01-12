@@ -18,6 +18,7 @@ import {
 import { UseFormReturn } from "react-hook-form"
 import type { JobCardFormData } from "@/lib/validations"
 import { ImageUpload } from "@/components/image-upload"
+import { useSubscription } from "@/hooks/use-subscription"
 
 interface DeviceInfoSectionProps {
   form: UseFormReturn<JobCardFormData>
@@ -41,6 +42,8 @@ export function DeviceInfoSection({
   onImagesChange,
   isLoading = false,
 }: DeviceInfoSectionProps) {
+  const { canUploadJobImages } = useSubscription()
+  
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -128,19 +131,21 @@ export function DeviceInfoSection({
         />
       </div>
 
-      {/* Device Condition Images */}
-      <div className="space-y-2">
-        <FormLabel>Device Condition Photos</FormLabel>
-        <p className="text-xs text-muted-foreground">
-          Upload photos showing the current condition of the device (scratches, dents, screen damage, etc.)
-        </p>
-        <ImageUpload
-          value={conditionImages}
-          onChange={onImagesChange}
-          useSubscriptionLimit={true}
-          disabled={isLoading}
-        />
-      </div>
+      {/* Device Condition Images - Only show for Pro/Elite plans */}
+      {canUploadJobImages() && (
+        <div className="space-y-2">
+          <FormLabel>Device Condition Photos</FormLabel>
+          <p className="text-xs text-muted-foreground">
+            Upload photos showing the current condition of the device (scratches, dents, screen damage, etc.)
+          </p>
+          <ImageUpload
+            value={conditionImages}
+            onChange={onImagesChange}
+            useSubscriptionLimit={true}
+            disabled={isLoading}
+          />
+        </div>
+      )}
 
       <FormField
         control={form.control}

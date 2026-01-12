@@ -17,6 +17,7 @@ export interface SubscriptionPlan {
     expenseTracker: boolean
     maxThemes: number
     maxJobImages: number
+    maxTemplates: number
   }
   highlights: string[]
   recommended?: boolean
@@ -38,6 +39,7 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
       expenseTracker: false,
       maxThemes: 5,
       maxJobImages: 0,
+      maxTemplates: 1,
     },
     highlights: [
       "Inventory Management",
@@ -46,6 +48,8 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
       "Profile Management",
       "Dashboard Access",
       "5 Themes",
+      "Default Invoice Template",
+      "No Image Uploads",
     ],
   },
   pro: {
@@ -63,11 +67,13 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
       expenseTracker: true,
       maxThemes: 10,
       maxJobImages: 2,
+      maxTemplates: 5,
     },
     highlights: [
       "Everything in Basic",
       "Expense Tracker",
       "10 Themes",
+      "5 Invoice Templates",
       "2 Images per Job Card",
       "Priority Support",
     ],
@@ -87,11 +93,14 @@ export const SUBSCRIPTION_PLANS: Record<PlanId, SubscriptionPlan> = {
       dashboard: true,
       expenseTracker: true,
       maxThemes: 20,
-      maxJobImages: 2,
+      maxJobImages: 4,
+      maxTemplates: 10,
     },
     highlights: [
       "Everything in Pro",
       "20 Premium Themes",
+      "10 Invoice Templates",
+      "4 Images per Job Card",
       "Advanced Analytics",
       "White-label Options",
       "Dedicated Support",
@@ -115,7 +124,7 @@ export function hasFeature(
 
 export function getFeatureLimit(
   planId: PlanId | undefined,
-  feature: "maxThemes" | "maxJobImages"
+  feature: "maxThemes" | "maxJobImages" | "maxTemplates"
 ): number {
   const plan = getPlan(planId)
   if (!plan) return 0

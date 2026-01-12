@@ -21,9 +21,9 @@ const STORAGE_KEY = 'selected-invoice-template'
 export default function TemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateId>(DEFAULT_TEMPLATE)
   const [templates] = useState<TemplateInfo[]>(getAllTemplates())
-  const { getMaxThemes, isSubscribed, currentPlan } = useSubscription()
+  const { getMaxTemplates, isSubscribed, currentPlan } = useSubscription()
 
-  const maxThemes = getMaxThemes()
+  const maxTemplates = getMaxTemplates()
 
   // Load saved template from localStorage on mount
   useEffect(() => {
@@ -35,9 +35,9 @@ export default function TemplatesPage() {
 
   const handleSelectTemplate = (id: TemplateId, index: number) => {
     // Check if template is locked
-    if (index >= maxThemes) {
+    if (index >= maxTemplates) {
       toast.error('Template locked', {
-        description: `Upgrade your plan to unlock more templates. You have access to ${maxThemes} templates.`
+        description: `Upgrade your plan to unlock more templates. You have access to ${maxTemplates} templates.`
       })
       return
     }
@@ -87,7 +87,7 @@ export default function TemplatesPage() {
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-sm px-4 py-2 bg-white shadow-sm">
                   <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
-                  {maxThemes} of {templates.length} Templates
+                  {maxTemplates} of {templates.length} Templates
                 </Badge>
                 {currentPlan && (
                   <Badge className="bg-amber-100 text-amber-700 border-amber-200">
@@ -143,9 +143,9 @@ export default function TemplatesPage() {
               </h2>
               <p className="text-sm text-slate-500">
                 Click on any template to preview and select
-                {maxThemes < templates.length && (
+                {maxTemplates < templates.length && (
                   <span className="text-amber-600 ml-1">
-                    ({templates.length - maxThemes} templates locked on your plan)
+                    ({templates.length - maxTemplates} templates locked on your plan)
                   </span>
                 )}
               </p>
@@ -154,7 +154,7 @@ export default function TemplatesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {templates.map((template, index) => {
                 const isSelected = selectedTemplate === template.id
-                const isLocked = index >= maxThemes
+                const isLocked = index >= maxTemplates
                 
                 return (
                   <Card 
@@ -309,7 +309,7 @@ export default function TemplatesPage() {
                   <p className="text-sm text-slate-600 leading-relaxed">
                     Your selected template will be automatically applied when generating invoices from job cards.
                     The template preference is saved locally on your device and will persist across sessions.
-                    {maxThemes < templates.length && (
+                    {maxTemplates < templates.length && (
                       <span className="block mt-2 text-amber-700">
                         <strong>Upgrade your plan</strong> to unlock all {templates.length} premium templates.
                       </span>

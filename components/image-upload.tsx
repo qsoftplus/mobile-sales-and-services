@@ -34,7 +34,7 @@ export function ImageUpload({
   const [isUploading, setIsUploading] = useState(false)
   const [dragActive, setDragActive] = useState(false)
   const { isAuthenticated } = useAuth()
-  const { getMaxJobImages, canUploadJobImages, isSubscribed } = useSubscription()
+  const { getMaxJobImages, canUploadJobImages, isSubscribed, planId } = useSubscription()
 
   // Determine actual max images based on subscription or prop
   const actualMaxImages = useSubscriptionLimit ? getMaxJobImages() : maxImages
@@ -80,7 +80,18 @@ export function ImageUpload({
     }
 
     if (value.length >= actualMaxImages) {
-      toast.error(`Maximum ${actualMaxImages} images allowed${useSubscriptionLimit ? ' on your plan' : ''}`)
+      // Show upgrade prompt for Pro users
+      if (useSubscriptionLimit && planId === 'pro') {
+        toast.error('Image limit reached!', {
+          description: 'Upgrade to Elite plan to upload up to 4 images per job.',
+          action: {
+            label: 'Upgrade',
+            onClick: () => window.location.href = '/subscription'
+          }
+        })
+      } else {
+        toast.error(`Maximum ${actualMaxImages} images allowed${useSubscriptionLimit ? ' on your plan' : ''}`)
+      }
       return
     }
 
@@ -205,7 +216,7 @@ export function ImageUpload({
           {isUploading ? (
             <>
               <Loader2 className="w-10 h-10 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Compressing & uploading...</p>
+              <p className="text-sm text-muted-foreground">Uploading...</p>
             </>
           ) : (
             <>
@@ -258,6 +269,24 @@ export function ImageUpload({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Upgrade Banner - Show when Pro user is at limit */}
+      {useSubscriptionLimit && planId === 'pro' && value.length >= actualMaxImages && (
+        <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center shrink-0">
+            <Crown className="w-4 h-4 text-amber-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-amber-800">Want more photos?</p>
+            <p className="text-xs text-amber-600">Upgrade to Elite for 4 images per job</p>
+          </div>
+          <Link href="/subscription">
+            <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs">
+              Upgrade
+            </Button>
+          </Link>
         </div>
       )}
 
