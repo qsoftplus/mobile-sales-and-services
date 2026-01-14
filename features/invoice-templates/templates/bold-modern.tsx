@@ -392,6 +392,39 @@ export const BoldModernTemplate = ({ data }: BoldModernTemplateProps) => {
           <Text style={styles.footerText}>#{data.invoiceNumber} • THANK YOU</Text>
         </View>
       </Page>
+
+      {/* Second Page for Device Images */}
+      {data.device?.images && data.device.images.length > 0 && (
+        <Page size="A4" style={styles.page}>
+          <View style={styles.header}>
+            <Text style={styles.companyName}>Device Condition Photos</Text>
+            <Text style={styles.companyDetail}>Invoice #{data.invoiceNumber}</Text>
+          </View>
+          
+          <View style={styles.content}>
+             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+              {data.device.images.map((imageUrl, index) => (
+                <Image 
+                  key={index}
+                  src={imageUrl} 
+                  style={{ 
+                    width: 250, 
+                    height: 180, 
+                    objectFit: 'cover', 
+                    borderRadius: 4, 
+                    borderWidth: 2, 
+                    borderColor: '#f3f4f6' 
+                  }} 
+                />
+              ))}
+            </View>
+          </View>
+
+          <View style={styles.footer}>
+             <Text style={styles.footerText}>#{data.invoiceNumber} • PAGE 2</Text>
+          </View>
+        </Page>
+      )}
     </Document>
   )
 }

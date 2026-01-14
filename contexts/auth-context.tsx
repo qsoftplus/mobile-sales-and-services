@@ -133,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Redirect logic based on auth status and subscription
     if (!isLoading) {
-      const publicPaths = ["/", "/login", "/register", "/forgot-password"]
+      const publicPaths = ["/", "/login", "/register", "/forgot-password", "/terms", "/privacy"]
       const isPublicPath = publicPaths.includes(pathname)
       const isSubscriptionPath = pathname === "/subscription"
       

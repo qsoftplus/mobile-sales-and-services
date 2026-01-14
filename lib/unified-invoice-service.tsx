@@ -5,6 +5,8 @@ import { getTemplateComponent } from "@/features/invoice-templates/templates"
 import { DEFAULT_TEMPLATE } from "@/features/invoice-templates/template-registry"
 import type { InvoiceData, TemplateId, InvoiceCompanyInfo } from "@/features/invoice-templates/types"
 import { buildTermsString } from "@/lib/validations/company.schema"
+import { uploadToFirebaseStorage } from "@/lib/firebase-storage"
+import { toast } from "sonner"
 
 const STORAGE_KEY = "selected-invoice-template"
 
@@ -49,6 +51,7 @@ interface JobCardData {
   imei?: string
   condition?: string
   accessories?: string
+  conditionImages?: Array<{ url: string; publicId: string }> // Device condition photos
   problemDescription?: string
   technicianDiagnosis?: string
   requiredParts?: string[]
@@ -85,6 +88,33 @@ function safeNumber(value: unknown): number {
   return 0
 }
 
+// Convert image URLs to base64 via server-side API (bypasses CORS)
+async function convertImagesToBase64(urls: string[]): Promise<string[]> {
+  if (!urls || urls.length === 0) return []
+  
+  try {
+    const response = await fetch('/api/image-to-base64', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ urls }),
+    })
+    
+    if (!response.ok) {
+      console.error('Image conversion API failed:', response.status)
+      return []
+    }
+    
+    const data = await response.json()
+    console.log(`Converted ${data.converted}/${data.total} images to base64`)
+    return data.images || []
+  } catch (error) {
+    console.error('Failed to convert images to base64:', error)
+    return []
+  }
+}
+
 // Format currency
 function formatCurrency(amount: number): string {
   return `₹${amount.toFixed(2)}`
@@ -108,7 +138,25 @@ function getCompanyInfo(data: JobCardData): CompanyInfo {
 }
 
 // Convert job card data to InvoiceData format for templates
-function jobCardToInvoiceData(jobCard: JobCardData): InvoiceData {
+async function jobCardToInvoiceData(jobCard: JobCardData): Promise<InvoiceData> {
+  // Convert condition images to base64 via server-side API (bypasses CORS)
+  let deviceImages: string[] | undefined
+  if (jobCard.conditionImages && jobCard.conditionImages.length > 0) {
+    const urls = jobCard.conditionImages.map(img => img.url)
+    console.log('[Invoice] Processing condition images:', urls.length, 'images')
+    console.log('[Invoice] Image URLs:', urls)
+    deviceImages = await convertImagesToBase64(urls)
+    console.log('[Invoice] Converted images:', deviceImages?.length || 0, 'of', urls.length)
+    
+    // Log if any images failed to convert
+    if (!deviceImages || deviceImages.length === 0) {
+      console.warn('[Invoice] Warning: No images were converted successfully')
+    } else if (deviceImages.length < urls.length) {
+      console.warn('[Invoice] Warning: Some images failed to convert')
+    }
+  } else {
+    console.log('[Invoice] No condition images found in job card')
+  }
   const company = getCompanyInfo(jobCard)
   const costs = jobCard.costEstimate || {}
   const laborCost = safeNumber(costs.laborCost)
@@ -152,6 +200,7 @@ function jobCardToInvoiceData(jobCard: JobCardData): InvoiceData {
       imei: jobCard.imei,
       condition: jobCard.condition,
       accessories: jobCard.accessories,
+      images: deviceImages, // Use base64 converted images
     } : undefined,
     problemDescription: jobCard.problemDescription,
     diagnosis: jobCard.technicianDiagnosis,
@@ -178,7 +227,7 @@ function jobCardToInvoiceData(jobCard: JobCardData): InvoiceData {
 export async function generateInvoiceBlob(jobCard: JobCardData): Promise<Blob> {
   const templateId = getSelectedTemplateId()
   const TemplateComponent = getTemplateComponent(templateId)
-  const invoiceData = jobCardToInvoiceData(jobCard)
+  const invoiceData = await jobCardToInvoiceData(jobCard)
   
   const doc = <TemplateComponent data={invoiceData} />
   const blob = await pdf(doc).toBlob()
@@ -211,86 +260,72 @@ export async function downloadMultipleInvoices(jobCards: JobCardData[]): Promise
   }
 }
 
-// Generate invoice image for WhatsApp sharing
-async function generateInvoiceImage(jobCard: JobCardData): Promise<Blob> {
-  const pdfBlob = await generateInvoiceBlob(jobCard)
-  
-  // Dynamically import pdfjs-dist
-  const pdfjsLib = await import("pdfjs-dist")
-  
-  // Set up the worker
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`
-  
-  // Load the PDF
-  const arrayBuffer = await pdfBlob.arrayBuffer()
-  const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-  
-  // Get the first page
-  const page = await pdfDoc.getPage(1)
-  
-  // Set scale for good quality image
-  const scale = 2
-  const viewport = page.getViewport({ scale })
-  
-  // Create canvas
-  const canvas = document.createElement("canvas")
-  const context = canvas.getContext("2d")!
-  canvas.width = viewport.width
-  canvas.height = viewport.height
-  
-  // Render the page
-  await page.render({
-    canvasContext: context,
-    viewport,
-    canvas,
-  }).promise
-  
-  // Convert canvas to blob
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob)
-      else reject(new Error("Failed to create image blob"))
-    }, "image/png", 0.95)
-  })
-}
 
-// Share on WhatsApp with template-styled invoice
+
+// Share invoice on WhatsApp with PDF link
 export async function shareOnWhatsApp(jobCard: JobCardData): Promise<void> {
-  const company = getCompanyInfo(jobCard)
-  const costs = jobCard.costEstimate || {}
-  const total = safeNumber(costs.total)
-  const advance = safeNumber(jobCard.advanceReceived)
-  const balance = total - advance
-  const status = jobCard.status || "pending"
-  const statusLabel = status === "delivered" ? "DELIVERED ✅" : status === "ready-for-delivery" ? "READY 📦" : "PENDING ⏳"
-
   try {
-    // Generate invoice image from PDF
-    const imageBlob = await generateInvoiceImage(jobCard)
+    const company = getCompanyInfo(jobCard)
+    const costs = jobCard.costEstimate || {}
+    const total = (costs.laborCost || 0) + (costs.partsCost || 0) + (costs.serviceCost || 0)
+    const advance = jobCard.advanceReceived || 0
+    const balance = total - advance
     
-    // Try to copy image to clipboard
-    let copiedToClipboard = false
+    // 1. Notify user
+    toast.loading("Generating invoice PDF...")
+    
+    // 2. Generate PDF Blob
+    const pdfBlob = await generateInvoiceBlob(jobCard)
+    
+    // 3. Create File object
+    const filename = `Invoice_${jobCard.id.substring(0, 6)}_${Date.now()}.pdf`
+    const pdfFile = new File([pdfBlob], filename, { type: "application/pdf" })
+    
+    // 4. Upload to Firebase
+    toast.dismiss() // Dismiss loading
+    toast.loading("Uploading invoice to share...")
+    
+    const uploadResult = await uploadToFirebaseStorage(pdfFile, "invoices")
+    
+    // 5. Try to create short URL, fall back to direct URL if it fails
+    let invoiceUrl = uploadResult.url // Default to direct Firebase URL
+    
     try {
-      await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": imageBlob })
-      ])
-      copiedToClipboard = true
-    } catch (err) {
-      console.log("Clipboard copy failed, will download instead:", err)
+      const shortId = jobCard.id.substring(0, 8).toUpperCase()
+      
+      // Import Firestore dynamically to avoid SSR issues
+      const { doc, setDoc } = await import("firebase/firestore")
+      const { db } = await import("@/lib/firebase")
+      
+      await setDoc(doc(db, "invoiceLinks", shortId), {
+        pdfUrl: uploadResult.url,
+        jobCardId: jobCard.id,
+        customerName: jobCard.customerName,
+        shopName: company.name,
+        createdAt: new Date().toISOString(),
+      })
+      
+      // Generate descriptive URL: /invoice/{shop-name}/{customer-name}/{id}
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : ""
+      
+      // Convert names to URL-friendly slugs (lowercase, replace spaces with hyphens)
+      const shopSlug = (company.name || "shop").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      const customerSlug = (jobCard.customerName || "customer").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+      
+      invoiceUrl = `${baseUrl}/invoice/${shopSlug}/${customerSlug}/${shortId}`
+      console.log("[WhatsApp] Using custom URL:", invoiceUrl)
+    } catch (linkError) {
+      console.warn("[WhatsApp] Could not create short URL, using direct link:", linkError)
+      // Keep using uploadResult.url as fallback
     }
-
-    // Download the image as backup
-    const fileName = `Invoice_${jobCard.id.slice(0, 8)}.png`
-    const url = URL.createObjectURL(imageBlob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = fileName
-    link.click()
-    URL.revokeObjectURL(url)
-
-    // Prepare WhatsApp message
-    const message = copiedToClipboard
-      ? `*${company.name}*
+    
+    toast.dismiss() // Dismiss uploading
+    toast.success("Ready to share!")
+    
+    // 6. Construct Message with Link
+    const statusLabel = jobCard.status === "delivered" ? "Delivered" : "Ready"
+    
+    let message = `*${company.name}*
 
 📄 *SERVICE INVOICE*
 
@@ -301,21 +336,8 @@ export async function shareOnWhatsApp(jobCard: JobCardData): Promise<void> {
 💰 *Total:* ${formatCurrency(total)}
 💵 *Balance:* ${formatCurrency(balance)}
 
-📷 *Invoice image copied!* Just press Ctrl+V (or Cmd+V) to paste it here!
-
-📞 ${company.phone}`
-      : `*${company.name}*
-
-📄 *SERVICE INVOICE*
-
-*Customer:* ${jobCard.customerName || "N/A"}
-*Device:* ${jobCard.deviceInfo?.brand || ""} ${jobCard.deviceInfo?.model || ""}
-*Status:* ${statusLabel}
-
-💰 *Total:* ${formatCurrency(total)}
-💵 *Balance:* ${formatCurrency(balance)}
-
-📷 _Invoice image downloaded - please attach it from your downloads!_
+🔗 *Download Invoice:*
+${invoiceUrl}
 
 📞 ${company.phone}`
 
@@ -344,14 +366,19 @@ export async function shareOnWhatsApp(jobCard: JobCardData): Promise<void> {
         : `https://web.whatsapp.com/send?text=${encodedMessage}`
     }
 
-    // Open WhatsApp after a small delay
-    setTimeout(() => {
-      window.open(whatsappUrl, "_blank")
-    }, 500)
+    // Open WhatsApp
+    window.open(whatsappUrl, "_blank")
     
   } catch (error) {
-    console.error("Error generating invoice image:", error)
-    // Fallback to just opening WhatsApp with text
+    console.error("Error sharing invoice:", error)
+    toast.dismiss()
+    toast.error("Failed to share invoice")
+    
+    // Fallback to just text if upload fails
+    const costs = jobCard.costEstimate || {}
+    const total = (costs.laborCost || 0) + (costs.partsCost || 0) + (costs.serviceCost || 0)
+    const balance = total - (jobCard.advanceReceived || 0)
+    
     const message = `Invoice for ${jobCard.customerName || "Customer"}\nTotal: ${formatCurrency(total)}\nBalance: ${formatCurrency(balance)}`
     const encodedMessage = encodeURIComponent(message)
     window.open(`https://web.whatsapp.com/send?text=${encodedMessage}`, "_blank")

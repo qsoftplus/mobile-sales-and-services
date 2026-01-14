@@ -17,7 +17,7 @@ export async function PUT(request: Request) {
     // Update user's subscription
     await adminDb.collection("users").doc(uid).update({
       subscription: {
-        plan: subscription.plan,
+        planId: subscription.planId,
         status: subscription.status,
         startDate: subscription.startDate,
         endDate: subscription.endDate,
@@ -48,25 +48,23 @@ export async function GET(request: Request) {
       trial: 0,
       expired: 0,
       cancelled: 0,
-      free: 0,
       basic: 0,
-      premium: 0,
-      enterprise: 0,
+      pro: 0,
+      elite: 0,
       monthlyRevenue: 0,
     }
 
     const planPrices = {
-      free: 0,
-      basic: 499,
-      premium: 999,
-      enterprise: 2499,
+      basic: 400,
+      pro: 700,
+      elite: 999,
     }
 
     usersSnapshot.docs.forEach((doc) => {
       const data = doc.data()
       stats.total++
       
-      const plan = data.subscription?.plan || "free"
+      const planId = data.subscription?.planId
       const status = data.subscription?.status || "active"
 
       // Count by status
@@ -76,14 +74,13 @@ export async function GET(request: Request) {
       else if (status === "cancelled") stats.cancelled++
 
       // Count by plan
-      if (plan === "free") stats.free++
-      else if (plan === "basic") stats.basic++
-      else if (plan === "premium") stats.premium++
-      else if (plan === "enterprise") stats.enterprise++
+      if (planId === "basic") stats.basic++
+      else if (planId === "pro") stats.pro++
+      else if (planId === "elite") stats.elite++
 
       // Calculate revenue (only active subscriptions)
-      if (status === "active") {
-        stats.monthlyRevenue += planPrices[plan as keyof typeof planPrices] || 0
+      if (status === "active" && planId) {
+        stats.monthlyRevenue += planPrices[planId as keyof typeof planPrices] || 0
       }
     })
 

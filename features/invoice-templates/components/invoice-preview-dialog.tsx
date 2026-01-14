@@ -145,6 +145,11 @@ export const sampleInvoiceData: InvoiceData = {
     imei: '354678901234567',
     condition: 'Minor scratches on back panel',
     accessories: 'Charger, Original Box',
+    images: [
+      'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=400&h=300&fit=crop',
+      'https://images.unsplash.com/photo-1565849904461-04a58ad377e0?w=400&h=300&fit=crop',
+    ],
   },
   problemDescription: 'Screen flickering and battery draining fast',
   diagnosis: 'Display connector loose, Battery degraded to 75% health',
@@ -162,4 +167,5 @@ export const sampleInvoiceData: InvoiceData = {
   paymentStatus: 'partial',
   deliveryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
   notes: 'Warranty: 30 days on parts replaced. Please collect device with original receipt.',
+  termsAndConditions: '1. All repairs are subject to availability of parts. 2. Warranty covers only the parts replaced. 3. Payment is due upon completion of service. 4. Device must be collected within 30 days. 5. We are not responsible for data loss during repair.',
 }

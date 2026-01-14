@@ -2,41 +2,47 @@
 
 import { Document, Page, Text, View, Image, StyleSheet } from '@react-pdf/renderer'
 import { InvoiceData } from '../types'
-import './fonts'
+import { TermsSection, SmartSection, formatCurrency, PaymentStatusBadge, SectionHeader } from '../components/pdf-primitives'
 
-const PRIMARY = '#1e40af'
-const SECONDARY = '#3b82f6'
+// Modern Minimalist - Emerald Green (#10b981)
+// Clean, sans-serif, whitespace-heavy, left-aligned header
+
+const ACCENT = '#10b981'
+const ACCENT_LIGHT = '#d1fae5'
+const ACCENT_DARK = '#059669'
 
 const styles = StyleSheet.create({
   page: {
     fontFamily: 'Helvetica',
     fontSize: 9,
     backgroundColor: '#ffffff',
-    padding: 25,
+    padding: 30,
+    paddingBottom: 60,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 15,
-    paddingBottom: 12,
+    marginBottom: 25,
+    paddingBottom: 20,
     borderBottomWidth: 2,
-    borderBottomColor: PRIMARY,
+    borderBottomColor: ACCENT,
   },
   logoSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
   },
   logo: {
-    width: 45,
-    height: 45,
+    width: 50,
+    height: 50,
     objectFit: 'contain',
   },
   companyName: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: 700,
-    color: PRIMARY,
+    color: '#0f172a',
+    marginBottom: 2,
   },
   companyDetail: {
     fontSize: 8,
@@ -47,88 +53,109 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   invoiceLabel: {
-    fontSize: 16,
+    fontSize: 24,
     fontWeight: 700,
-    color: PRIMARY,
+    color: ACCENT_DARK,
+    letterSpacing: 2,
   },
   invoiceNumber: {
     fontSize: 10,
+    color: '#64748b',
+    marginTop: 4,
+  },
+  invoiceDate: {
+    fontSize: 9,
     color: '#475569',
     marginTop: 2,
   },
-  infoRow: {
+  infoGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 20,
+    gap: 20,
   },
   infoBox: {
-    width: '48%',
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    borderRadius: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: ACCENT,
   },
   sectionLabel: {
     fontSize: 7,
     fontWeight: 700,
-    color: SECONDARY,
+    color: ACCENT_DARK,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
+    letterSpacing: 1,
+    marginBottom: 8,
   },
   customerName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 700,
     color: '#0f172a',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   infoText: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#475569',
-    marginBottom: 1,
+    marginBottom: 2,
   },
-  deviceRow: {
+  deviceSection: {
+    backgroundColor: ACCENT_LIGHT,
+    padding: 12,
+    borderRadius: 6,
+    marginBottom: 20,
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    padding: 8,
-    borderRadius: 4,
-    marginBottom: 12,
-    gap: 15,
+    flexWrap: 'wrap',
+    gap: 20,
   },
   deviceItem: {
-    flexDirection: 'row',
-    gap: 4,
+    minWidth: 100,
   },
   deviceLabel: {
     fontSize: 7,
-    color: '#64748b',
+    color: ACCENT_DARK,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   deviceValue: {
-    fontSize: 8,
+    fontSize: 10,
+    color: '#0f172a',
     fontWeight: 600,
-    color: '#1e293b',
+    marginTop: 2,
   },
   table: {
-    marginBottom: 12,
+    marginBottom: 20,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: PRIMARY,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
+    backgroundColor: ACCENT,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 4,
+    marginBottom: 2,
   },
   tableHeaderCell: {
-    fontSize: 7,
+    fontSize: 8,
     fontWeight: 700,
     color: '#ffffff',
     textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   tableRow: {
     flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
+  tableRowAlt: {
+    backgroundColor: '#f8fafc',
+  },
   tableCell: {
-    fontSize: 8,
-    color: '#1e293b',
+    fontSize: 9,
+    color: '#334155',
   },
   colDescription: { width: '50%' },
   colQty: { width: '12%', textAlign: 'center' },
@@ -137,105 +164,59 @@ const styles = StyleSheet.create({
   totalsSection: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginBottom: 12,
+    marginBottom: 20,
   },
   totalsBox: {
-    width: 180,
+    width: 220,
+    backgroundColor: '#f8fafc',
+    padding: 15,
+    borderRadius: 6,
   },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
   totalLabel: {
-    fontSize: 8,
+    fontSize: 9,
     color: '#64748b',
   },
   totalValue: {
-    fontSize: 8,
+    fontSize: 9,
     fontWeight: 600,
     color: '#1e293b',
   },
   grandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: PRIMARY,
-    padding: 8,
-    borderRadius: 4,
-    marginTop: 4,
+    paddingTop: 10,
+    marginTop: 8,
+    borderTopWidth: 2,
+    borderTopColor: ACCENT,
   },
   grandTotalLabel: {
-    fontSize: 10,
-    fontWeight: 700,
-    color: '#ffffff',
-  },
-  grandTotalValue: {
     fontSize: 12,
     fontWeight: 700,
-    color: '#ffffff',
+    color: '#0f172a',
   },
-  statusRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 4,
-    marginBottom: 12,
-  },
-  statusPaid: {
-    backgroundColor: '#dcfce7',
-    borderWidth: 1,
-    borderColor: '#22c55e',
-  },
-  statusPending: {
-    backgroundColor: '#fef3c7',
-    borderWidth: 1,
-    borderColor: '#f59e0b',
-  },
-  statusText: {
-    fontSize: 9,
+  grandTotalValue: {
+    fontSize: 14,
     fontWeight: 700,
+    color: ACCENT_DARK,
   },
-  statusTextPaid: {
-    color: '#16a34a',
-  },
-  statusTextPending: {
-    color: '#d97706',
-  },
-  balanceText: {
-    fontSize: 10,
-    fontWeight: 700,
-  },
-  termsSection: {
-    marginTop: 10,
-    padding: 10,
-    backgroundColor: '#f8fafc',
-    borderRadius: 4,
-    borderLeftWidth: 2,
-    borderLeftColor: SECONDARY,
-  },
-  termsTitle: {
-    fontSize: 7,
-    fontWeight: 700,
-    color: '#334155',
-    marginBottom: 4,
-    textTransform: 'uppercase',
-  },
-  termsText: {
-    fontSize: 7,
-    color: '#64748b',
-    lineHeight: 1.4,
+  statusSection: {
+    marginBottom: 15,
   },
   footer: {
     position: 'absolute',
     bottom: 20,
-    left: 25,
-    right: 25,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#e2e8f0',
+    left: 30,
+    right: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
   },
   footerText: {
     fontSize: 7,
@@ -243,18 +224,13 @@ const styles = StyleSheet.create({
   },
 })
 
-const formatCurrency = (amount: number): string => {
-  return 'Rs. ' + new Intl.NumberFormat('en-IN', {
-    maximumFractionDigits: 0,
-  }).format(amount)
-}
-
-interface CorporateBlueTemplateProps {
+interface ModernMinimalistTemplateProps {
   data: InvoiceData
 }
 
-export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
+export const ModernMinimalistTemplate = ({ data }: ModernMinimalistTemplateProps) => {
   const isPaid = data.paymentStatus === 'paid'
+  let rowIndex = 0
 
   return (
     <Document>
@@ -274,12 +250,13 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
           </View>
           <View style={styles.invoiceTitle}>
             <Text style={styles.invoiceLabel}>INVOICE</Text>
-            <Text style={styles.invoiceNumber}>{data.invoiceDate}</Text>
+            <Text style={styles.invoiceNumber}>#{data.invoiceNumber}</Text>
+            <Text style={styles.invoiceDate}>{data.invoiceDate}</Text>
           </View>
         </View>
 
-        {/* Customer & Date Info */}
-        <View style={styles.infoRow}>
+        {/* Customer & Due Date Info */}
+        <View style={styles.infoGrid}>
           <View style={styles.infoBox}>
             <Text style={styles.sectionLabel}>Bill To</Text>
             <Text style={styles.customerName}>{data.customer.name}</Text>
@@ -288,34 +265,35 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
             {data.customer.address && <Text style={styles.infoText}>{data.customer.address}</Text>}
           </View>
           {data.dueDate && (
-            <View style={styles.infoBox}>
-              <Text style={styles.sectionLabel}>Payment Due</Text>
+            <View style={[styles.infoBox, { flex: 0.5 }]}>
+              <Text style={styles.sectionLabel}>Due Date</Text>
               <Text style={styles.customerName}>{data.dueDate}</Text>
+              {data.deliveryDate && <Text style={styles.infoText}>Delivery: {data.deliveryDate}</Text>}
             </View>
           )}
         </View>
 
-        {/* Device Info - Compact Row */}
+        {/* Device Info */}
         {data.device && (
-          <View style={styles.deviceRow}>
+          <View style={styles.deviceSection}>
             <View style={styles.deviceItem}>
-              <Text style={styles.deviceLabel}>Device:</Text>
+              <Text style={styles.deviceLabel}>Device</Text>
               <Text style={styles.deviceValue}>{data.device.brand} {data.device.model}</Text>
             </View>
             <View style={styles.deviceItem}>
-              <Text style={styles.deviceLabel}>Type:</Text>
+              <Text style={styles.deviceLabel}>Type</Text>
               <Text style={styles.deviceValue}>{data.device.type}</Text>
             </View>
             {data.device.imei && (
               <View style={styles.deviceItem}>
-                <Text style={styles.deviceLabel}>IMEI:</Text>
+                <Text style={styles.deviceLabel}>IMEI</Text>
                 <Text style={styles.deviceValue}>{data.device.imei}</Text>
               </View>
             )}
-            {data.problemDescription && (
+            {data.device.condition && (
               <View style={styles.deviceItem}>
-                <Text style={styles.deviceLabel}>Issue:</Text>
-                <Text style={styles.deviceValue}>{data.problemDescription}</Text>
+                <Text style={styles.deviceLabel}>Condition</Text>
+                <Text style={styles.deviceValue}>{data.device.condition}</Text>
               </View>
             )}
           </View>
@@ -331,7 +309,7 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
           </View>
 
           {data.costs.laborCost > 0 && (
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, rowIndex++ % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.tableCell, styles.colDescription]}>Labor / Service Charges</Text>
               <Text style={[styles.tableCell, styles.colQty]}>1</Text>
               <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(data.costs.laborCost)}</Text>
@@ -340,7 +318,7 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
           )}
 
           {data.costs.partsCost > 0 && (
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, rowIndex++ % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.tableCell, styles.colDescription]}>Parts & Components</Text>
               <Text style={[styles.tableCell, styles.colQty]}>1</Text>
               <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(data.costs.partsCost)}</Text>
@@ -349,7 +327,7 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
           )}
 
           {data.costs.serviceCost > 0 && (
-            <View style={styles.tableRow}>
+            <View style={[styles.tableRow, rowIndex++ % 2 === 1 ? styles.tableRowAlt : {}]}>
               <Text style={[styles.tableCell, styles.colDescription]}>Service Fee</Text>
               <Text style={[styles.tableCell, styles.colQty]}>1</Text>
               <Text style={[styles.tableCell, styles.colPrice]}>{formatCurrency(data.costs.serviceCost)}</Text>
@@ -374,18 +352,18 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
             {data.costs.discount && data.costs.discount > 0 && (
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Discount</Text>
-                <Text style={styles.totalValue}>- {formatCurrency(data.costs.discount)}</Text>
+                <Text style={[styles.totalValue, { color: ACCENT_DARK }]}>- {formatCurrency(data.costs.discount)}</Text>
               </View>
             )}
             <View style={styles.grandTotalRow}>
-              <Text style={styles.grandTotalLabel}>TOTAL</Text>
+              <Text style={styles.grandTotalLabel}>Total</Text>
               <Text style={styles.grandTotalValue}>{formatCurrency(data.costs.total)}</Text>
             </View>
             {data.advanceReceived && data.advanceReceived > 0 && (
               <>
-                <View style={[styles.totalRow, { marginTop: 6 }]}>
+                <View style={[styles.totalRow, { marginTop: 8 }]}>
                   <Text style={styles.totalLabel}>Advance Paid</Text>
-                  <Text style={[styles.totalValue, { color: '#16a34a' }]}>- {formatCurrency(data.advanceReceived)}</Text>
+                  <Text style={[styles.totalValue, { color: ACCENT_DARK }]}>- {formatCurrency(data.advanceReceived)}</Text>
                 </View>
                 <View style={styles.totalRow}>
                   <Text style={[styles.totalLabel, { fontWeight: 700 }]}>Balance Due</Text>
@@ -397,61 +375,59 @@ export const CorporateBlueTemplate = ({ data }: CorporateBlueTemplateProps) => {
         </View>
 
         {/* Payment Status */}
-        <View style={[styles.statusRow, isPaid ? styles.statusPaid : styles.statusPending]}>
-          <Text style={[styles.statusText, isPaid ? styles.statusTextPaid : styles.statusTextPending]}>
-            {isPaid ? '✓ PAID IN FULL' : 'PAYMENT PENDING'}
-          </Text>
-          {!isPaid && (
-            <Text style={[styles.balanceText, styles.statusTextPending]}>
-              Balance: {formatCurrency(data.balanceDue || data.costs.total)}
-            </Text>
-          )}
+        <View style={styles.statusSection}>
+          <PaymentStatusBadge status={data.paymentStatus || 'pending'} balanceDue={data.balanceDue || data.costs.total} />
         </View>
-
-        {/* Terms & Conditions */}
-        {data.termsAndConditions && (
-          <View style={styles.termsSection}>
-            <Text style={styles.termsTitle}>Terms & Conditions</Text>
-            <Text style={styles.termsText}>{data.termsAndConditions}</Text>
-          </View>
-        )}
 
         {/* Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>#{data.invoiceNumber} • {data.company.name}</Text>
+          <Text style={styles.footerText}>Invoice #{data.invoiceNumber} • {data.company.name}</Text>
           <Text style={styles.footerText}>Thank you for your business!</Text>
         </View>
       </Page>
       
-      {/* Second Page for Device Images */}
-      {data.device?.images && data.device.images.length > 0 && (
+      {/* Terms & Conditions / Device Photos - Second Page */}
+      {(data.termsAndConditions || (data.device?.images && data.device.images.length > 0)) && (
         <Page size="A4" style={styles.page}>
-          <View style={styles.header}>
-            <Text style={styles.companyName}>Device Condition Photos</Text>
-            <Text style={styles.companyDetail}>Invoice #{data.invoiceNumber}</Text>
+          <View style={{ marginBottom: 20, paddingBottom: 15, borderBottomWidth: 2, borderBottomColor: ACCENT }}>
+            <Text style={{ fontSize: 18, fontWeight: 700, color: ACCENT_DARK }}>Additional Information</Text>
+            <Text style={{ fontSize: 9, color: '#64748b', marginTop: 4 }}>Invoice #{data.invoiceNumber} • {data.company.name}</Text>
           </View>
           
-          <View style={{ paddingVertical: 10 }}>
-             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {data.device.images.map((imageUrl, index) => (
-                <Image 
-                  key={index}
-                  src={imageUrl} 
-                  style={{ 
-                    width: 250, 
-                    height: 180, 
-                    objectFit: 'cover', 
-                    borderRadius: 4, 
-                    borderWidth: 1, 
-                    borderColor: PRIMARY 
-                  }} 
-                />
-              ))}
+          {/* Terms & Conditions */}
+          {data.termsAndConditions && (
+            <View style={{ backgroundColor: ACCENT_LIGHT, padding: 20, borderRadius: 8, borderWidth: 1, borderColor: ACCENT, marginBottom: 20 }}>
+              <Text style={{ fontSize: 11, fontWeight: 700, color: ACCENT_DARK, marginBottom: 10 }}>Terms & Conditions</Text>
+              <Text style={{ fontSize: 10, color: '#334155', lineHeight: 1.8 }}>{data.termsAndConditions}</Text>
             </View>
+          )}
+          
+          {/* Device Condition Photos */}
+          {data.device?.images && data.device.images.length > 0 && (
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ fontSize: 11, fontWeight: 700, color: ACCENT_DARK, marginBottom: 10 }}>Device Condition Photos</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {data.device.images.slice(0, 4).map((imageUrl, index) => (
+                  <Image 
+                    key={index}
+                    src={imageUrl} 
+                    style={{ width: 120, height: 90, objectFit: 'cover', borderRadius: 6, borderWidth: 1, borderColor: ACCENT }} 
+                  />
+                ))}
+              </View>
+            </View>
+          )}
+          
+          <View style={{ marginTop: 'auto', padding: 15, backgroundColor: '#f8fafc', borderRadius: 6 }}>
+            <Text style={{ fontSize: 9, fontWeight: 700, color: '#334155', marginBottom: 8 }}>Contact Us</Text>
+            <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.name}</Text>
+            <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.address}</Text>
+            <Text style={{ fontSize: 9, color: '#64748b' }}>{data.company.phone} • {data.company.email}</Text>
           </View>
-
+          
           <View style={styles.footer}>
-             <Text style={styles.footerText}>Page 2 • #{data.invoiceNumber}</Text>
+            <Text style={styles.footerText}>Page 2</Text>
+            <Text style={styles.footerText}>{data.company.name}</Text>
           </View>
         </Page>
       )}

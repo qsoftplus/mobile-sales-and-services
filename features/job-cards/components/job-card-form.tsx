@@ -87,7 +87,10 @@ export function JobCardForm({ onSuccess, onFormChange, initialData, mode = "crea
   const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [conditionImages, setConditionImages] = useState<UploadedImage[]>([])
-  const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(null)
+  // Initialize with initial data phone immediately for edit mode to prevent wrong history showing
+  const [selectedCustomerPhone, setSelectedCustomerPhone] = useState<string | null>(
+    mode === "edit" && initialData?.phone ? initialData.phone : null
+  )
 
   const form = useForm<JobCardFormData>({
     resolver: zodResolver(jobCardFormSchema),

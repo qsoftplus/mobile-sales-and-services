@@ -355,13 +355,13 @@ export default function MarketingPage() {
               © 2024 RepairHub. All rights reserved.
             </div>
             <div className="flex items-center gap-6">
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <Link href="/privacy" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Privacy
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              </Link>
+              <Link href="/terms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Terms
-              </a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              </Link>
+              <a href="mailto:support@repairhub.in" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Contact
               </a>
             </div>

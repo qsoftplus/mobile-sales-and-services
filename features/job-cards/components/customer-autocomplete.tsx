@@ -128,7 +128,24 @@ export function CustomerAutocomplete({
     )
   }, [customers, searchQuery])
 
+  // Track if user has explicitly interacted to prevent auto-selection
+  const [hasUserInteracted, setHasUserInteracted] = React.useState(false)
+
   const handleSelect = (customer: Customer) => {
+    // Only proceed if user has interacted with the dropdown (not auto-triggered)
+    if (!hasUserInteracted) {
+      console.log('[Autocomplete] Ignoring auto-triggered selection')
+      return
+    }
+    
+    // Don't trigger if selecting the same customer that's already selected
+    if (value.toLowerCase() === customer.name.toLowerCase()) {
+      console.log('[Autocomplete] Same customer already selected, just closing')
+      setOpen(false)
+      return
+    }
+    
+    console.log('[Autocomplete] User selected customer:', customer.name, customer.phone)
     onChange(customer.name)
     setSelectedCustomerId(customer.id)
     onSelect(customer)
@@ -137,31 +154,45 @@ export function CustomerAutocomplete({
 
   const handleSearchChange = (query: string) => {
     setSearchQuery(query)
+    setHasUserInteracted(true) // User is typing = interacting
   }
 
   // Handle using the search query as a new customer name
   const handleUseNewCustomer = () => {
     if (searchQuery.trim()) {
+      console.log('[Autocomplete] User adding new customer:', searchQuery.trim())
       onChange(searchQuery.trim())
       setSelectedCustomerId(null)
-      onSelect(null) // Clear any previous selection
+      onSelect(null) // Clear any previous selection - New customer has no history
       setOpen(false)
     }
   }
 
   // When popover closes, if there's a search query and no selection, use it as new customer
   const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen && searchQuery.trim() && !selectedCustomerId) {
+    if (isOpen) {
+      // Reset interaction flag when opening
+      setHasUserInteracted(false)
+    } else if (!isOpen && searchQuery.trim() && !selectedCustomerId && hasUserInteracted) {
+      // Only process if user actually interacted
       // If closing with a search query and no customer selected, use the search query
       const matchingCustomer = customers.find(
         c => c.name.toLowerCase() === searchQuery.toLowerCase()
       )
       if (!matchingCustomer) {
+        console.log('[Autocomplete] Closing with new customer name:', searchQuery.trim())
         onChange(searchQuery.trim())
         onSelect(null)
       }
     }
     setOpen(isOpen)
+  }
+
+  // Mark as interacted when user clicks on an item
+  const handleItemClick = (customer: Customer) => {
+    setHasUserInteracted(true)
+    // Use a small delay to ensure the flag is set before handleSelect runs
+    setTimeout(() => handleSelect(customer), 0)
   }
 
   // Check if current value matches a customer (for showing check mark)
@@ -170,31 +201,77 @@ export function CustomerAutocomplete({
            value.toLowerCase() === customer.name.toLowerCase()
   }
 
+  // Handle direct input change (editing the customer name)
+  const handleDirectInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    onChange(newValue)
+    setSearchQuery(newValue)
+    setHasUserInteracted(true)
+    setSelectedCustomerId(null) // Clear selection when manually editing
+    
+    // Open dropdown to show suggestions if there's text
+    if (!open && newValue.trim()) {
+      setOpen(true)
+    }
+    
+    // If the name is being edited (not matching any existing customer), notify parent
+    const matchingCustomer = customers.find(c => c.name.toLowerCase() === newValue.toLowerCase())
+    if (!matchingCustomer) {
+      onSelect(null) // New/edited customer name
+    }
+  }
+
+  // Handle focus on input - show dropdown with suggestions
+  const handleInputFocus = () => {
+    setSearchQuery(value) // Set search query to current value for filtering
+    setHasUserInteracted(true)
+  }
+
+  // Toggle dropdown when clicking the chevron icon
+  const handleDropdownToggle = () => {
+    if (!open) {
+      setSearchQuery("") // Reset search to show all customers
+    }
+    setOpen(!open)
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <FormControl>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={cn(
-              "w-full justify-between font-normal",
-              !value && "text-muted-foreground"
-            )}
-          >
-            <span className="flex items-center gap-2 truncate">
-              <User className="h-4 w-4 shrink-0 opacity-50" />
-              {value || placeholder}
-            </span>
-            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
+          <div className="relative flex items-center">
+            <User className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={value}
+              onChange={handleDirectInputChange}
+              onFocus={handleInputFocus}
+              placeholder={placeholder}
+              className={cn(
+                "flex h-10 w-full rounded-md border border-input bg-background px-9 py-2 text-sm",
+                "ring-offset-background placeholder:text-muted-foreground",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "disabled:cursor-not-allowed disabled:opacity-50"
+              )}
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                handleDropdownToggle()
+              }}
+              className="absolute right-2 p-1 hover:bg-muted rounded"
+            >
+              <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+            </button>
+          </div>
         </FormControl>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Type customer name or phone..."
+            placeholder="Search customers..."
             value={searchQuery}
             onValueChange={handleSearchChange}
           />
@@ -210,7 +287,10 @@ export function CustomerAutocomplete({
                   <CommandGroup heading="New Customer">
                     <CommandItem
                       value="new-customer"
-                      onSelect={handleUseNewCustomer}
+                      onSelect={() => {
+                        setHasUserInteracted(true)
+                        handleUseNewCustomer()
+                      }}
                       className="cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
@@ -228,7 +308,7 @@ export function CustomerAutocomplete({
                       <CommandItem
                         key={customer.id}
                         value={customer.id}
-                        onSelect={() => handleSelect(customer)}
+                        onSelect={() => handleItemClick(customer)}
                         className="cursor-pointer"
                       >
                         <div className="flex flex-col gap-0.5 flex-1">

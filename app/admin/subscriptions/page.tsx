@@ -15,7 +15,7 @@ import {
   AlertCircle,
   Crown,
   Sparkles,
-  Building,
+  Zap,
   Gift,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -55,7 +55,7 @@ interface Subscription {
   email: string
   name: string
   subscription?: {
-    plan: "free" | "basic" | "premium" | "enterprise"
+    planId: "basic" | "pro" | "elite"
     status: "active" | "expired" | "cancelled" | "trial"
     startDate: string
     endDate: string
@@ -64,10 +64,10 @@ interface Subscription {
 }
 
 const planDetails = {
-  free: { name: "Free", price: 0, icon: Gift, color: "slate" },
-  basic: { name: "Basic", price: 499, icon: Sparkles, color: "blue" },
-  premium: { name: "Premium", price: 999, icon: Crown, color: "purple" },
-  enterprise: { name: "Enterprise", price: 2499, icon: Building, color: "amber" },
+  trial: { name: "Trial", price: 0, icon: Gift, color: "emerald" },
+  basic: { name: "Basic", price: 400, icon: Zap, color: "slate" },
+  pro: { name: "Pro", price: 700, icon: Sparkles, color: "blue" },
+  elite: { name: "Elite", price: 999, icon: Crown, color: "amber" },
 }
 
 const statusDetails = {
@@ -88,7 +88,7 @@ export default function SubscriptionsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedUser, setSelectedUser] = useState<Subscription | null>(null)
   const [editData, setEditData] = useState({
-    plan: "free" as "free" | "basic" | "premium" | "enterprise",
+    planId: "basic" as "basic" | "pro" | "elite",
     status: "active" as "active" | "expired" | "cancelled" | "trial",
     endDate: "",
     autoRenew: false,
@@ -114,9 +114,13 @@ export default function SubscriptionsPage() {
 
     // Apply plan filter
     if (planFilter !== "all") {
-      result = result.filter(
-        (user) => (user.subscription?.plan || "free") === planFilter
-      )
+      if (planFilter === "trial") {
+        result = result.filter((user) => user.subscription?.status === "trial")
+      } else {
+        result = result.filter(
+          (user) => user.subscription?.planId === planFilter
+        )
+      }
     }
 
     // Apply status filter
@@ -154,13 +158,13 @@ export default function SubscriptionsPage() {
     ).length
     const expired = users.filter((u) => u.subscription?.status === "expired").length
     const premium = users.filter(
-      (u) => u.subscription?.plan === "premium" || u.subscription?.plan === "enterprise"
+      (u) => u.subscription?.planId === "pro" || u.subscription?.planId === "elite"
     ).length
     const revenue = users.reduce((acc, u) => {
-      const plan = u.subscription?.plan || "free"
+      const planId = u.subscription?.planId
       const status = u.subscription?.status || "active"
-      if (status === "active") {
-        return acc + (planDetails[plan]?.price || 0)
+      if (status === "active" && planId) {
+        return acc + (planDetails[planId]?.price || 0)
       }
       return acc
     }, 0)
@@ -173,7 +177,7 @@ export default function SubscriptionsPage() {
   const openEditDialog = (user: Subscription) => {
     setSelectedUser(user)
     setEditData({
-      plan: user.subscription?.plan || "free",
+      planId: user.subscription?.planId || "basic",
       status: user.subscription?.status || "active",
       endDate: user.subscription?.endDate
         ? new Date(user.subscription.endDate).toISOString().split("T")[0]
@@ -198,7 +202,7 @@ export default function SubscriptionsPage() {
         body: JSON.stringify({
           uid: selectedUser.uid,
           subscription: {
-            plan: editData.plan,
+            planId: editData.planId,
             status: editData.status,
             startDate: selectedUser.subscription?.startDate || new Date().toISOString(),
             endDate: new Date(editData.endDate).toISOString(),
@@ -227,7 +231,7 @@ export default function SubscriptionsPage() {
       ...filteredUsers.map((user) => [
         user.name,
         user.email,
-        user.subscription?.plan || "free",
+        user.subscription?.status === "trial" ? "Trial" : (user.subscription?.planId || "None"),
         user.subscription?.status || "active",
         user.subscription?.startDate
           ? new Date(user.subscription.startDate).toLocaleDateString()
@@ -301,10 +305,10 @@ export default function SubscriptionsPage() {
             </SelectTrigger>
             <SelectContent className="bg-white border-slate-200">
               <SelectItem value="all">All Plans</SelectItem>
-              <SelectItem value="free">Free</SelectItem>
+              <SelectItem value="trial">Trial</SelectItem>
               <SelectItem value="basic">Basic</SelectItem>
-              <SelectItem value="premium">Premium</SelectItem>
-              <SelectItem value="enterprise">Enterprise</SelectItem>
+              <SelectItem value="pro">Pro</SelectItem>
+              <SelectItem value="elite">Elite</SelectItem>
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -376,9 +380,10 @@ export default function SubscriptionsPage() {
                   </TableRow>
                 ) : (
                   filteredUsers.map((user) => {
-                    const plan = user.subscription?.plan || "free"
+                    // Show "trial" as plan if status is trial, otherwise use planId
+                    const displayPlan = user.subscription?.status === "trial" ? "trial" : (user.subscription?.planId || "basic")
                     const status = user.subscription?.status || "active"
-                    const PlanIcon = planDetails[plan].icon
+                    const PlanIcon = planDetails[displayPlan]?.icon || planDetails.basic.icon
                     const StatusIcon = statusDetails[status].icon
 
                     return (
@@ -395,10 +400,10 @@ export default function SubscriptionsPage() {
                         <TableCell>
                           <Badge
                             variant="outline"
-                            className={`border-${planDetails[plan].color}-200 text-${planDetails[plan].color}-700 bg-${planDetails[plan].color}-50`}
+                            className={`border-${planDetails[displayPlan]?.color || "slate"}-200 text-${planDetails[displayPlan]?.color || "slate"}-700 bg-${planDetails[displayPlan]?.color || "slate"}-50`}
                           >
                             <PlanIcon className="w-3 h-3 mr-1" />
-                            {planDetails[plan].name}
+                            {planDetails[displayPlan]?.name || "Basic"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -464,17 +469,16 @@ export default function SubscriptionsPage() {
             <div className="space-y-2">
               <Label className="text-slate-600">Plan</Label>
               <Select
-                value={editData.plan}
-                onValueChange={(value: any) => setEditData({ ...editData, plan: value })}
+                value={editData.planId}
+                onValueChange={(value: any) => setEditData({ ...editData, planId: value })}
               >
                 <SelectTrigger className="bg-white border-slate-200 text-slate-900">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-white border-slate-200">
-                  <SelectItem value="free">Free (₹0/month)</SelectItem>
-                  <SelectItem value="basic">Basic (₹499/month)</SelectItem>
-                  <SelectItem value="premium">Premium (₹999/month)</SelectItem>
-                  <SelectItem value="enterprise">Enterprise (₹2499/month)</SelectItem>
+                  <SelectItem value="basic">Basic (₹400/month)</SelectItem>
+                  <SelectItem value="pro">Pro (₹700/month)</SelectItem>
+                  <SelectItem value="elite">Elite (₹999/month)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

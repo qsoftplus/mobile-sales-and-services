@@ -66,7 +66,7 @@ import {
   MoreVertical
 } from "lucide-react"
 import { toast } from "sonner"
-import { InvoiceGenerator, jobCardToInvoiceData } from "@/features/invoice-templates"
+import { downloadInvoice } from "@/lib/unified-invoice-service"
 
 interface JobCard {
   id: string
@@ -95,6 +95,7 @@ interface JobCard {
   technicianDiagnosis?: string
   requiredParts?: string[]
   deliveryDate?: string
+  conditionImages?: Array<{ url: string; publicId: string }>
 }
 
 // Helper function to get date range boundaries
@@ -203,6 +204,14 @@ export default function DashboardPage() {
     
     const revenueGrowth = prevRevenue > 0 ? ((totalRevenue - prevRevenue) / prevRevenue) * 100 : (totalRevenue > 0 ? 100 : 0)
     const jobsGrowth = prevJobs > 0 ? ((totalJobs - prevJobs) / prevJobs) * 100 : (totalJobs > 0 ? 100 : 0)
+    // Calculate total pending amount (balance due from customers)
+    const totalPending = filteredJobs
+      .filter((j: JobCard) => j.status !== 'delivered')
+      .reduce((acc: number, job: JobCard) => {
+        const total = Number(job.costEstimate?.total) || 0
+        const advance = Number(job.advanceReceived) || 0
+        return acc + Math.max(0, total - advance)
+      }, 0)
     
     return {
       totalJobs,
@@ -211,7 +220,7 @@ export default function DashboardPage() {
       completedCount,
       revenueGrowth: Math.round(revenueGrowth * 10) / 10,
       jobsGrowth: Math.round(jobsGrowth * 10) / 10,
-      avgTicket: totalJobs > 0 ? totalRevenue / totalJobs : 0
+      totalPending
     }
   }, [filteredJobs, previousPeriodJobs])
 
@@ -393,23 +402,23 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Pending Card */}
+          {/* Pending Collections Card */}
           <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-500">Avg. Ticket Size</p>
-                  <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(stats.avgTicket)}</h3>
+                  <p className="text-sm font-medium text-slate-500">Total Pending</p>
+                  <h3 className="text-2xl font-bold text-slate-900 mt-1">{formatCurrency(stats.totalPending)}</h3>
                 </div>
-                <div className="h-10 w-10 bg-amber-50 rounded-lg flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-amber-600" />
+                <div className="h-10 w-10 bg-rose-50 rounded-lg flex items-center justify-center">
+                  <IndianRupee className="w-5 h-5 text-rose-600" />
                 </div>
               </div>
               <div className="mt-4 flex items-center gap-2 text-sm">
                 <span className="text-slate-500 font-medium">
-                  {stats.completedCount} jobs
+                  {stats.pendingCount} jobs
                 </span>
-                <span className="text-slate-400">completed total</span>
+                <span className="text-slate-400">awaiting payment</span>
               </div>
             </CardContent>
           </Card>
@@ -903,32 +912,45 @@ export default function DashboardPage() {
                   <p className="text-xs text-slate-500 mb-3">
                     Download invoice using your selected template from Settings → Templates
                   </p>
-                  <InvoiceGenerator
-                    invoiceData={jobCardToInvoiceData(
-                      {
+                  <Button 
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => {
+                      // Spread all job properties (including conditionImages) and add company info
+                      const jobCardWithCompanyInfo = {
                         ...selectedJob,
-                        deviceInfo: selectedJob.deviceInfo ? {
-                          type: selectedJob.deviceInfo.type || 'Device',
-                          brand: selectedJob.deviceInfo.brand || 'Unknown',
-                          model: selectedJob.deviceInfo.model || '',
-                        } : { type: 'Device', brand: 'Unknown', model: '' },
-                      },
-                      {
-                        name: company?.companyName || 'Your Company',
-                        address: company?.address || '',
-                        phone: company?.phone || '',
-                        email: company?.email || undefined,
-                        gstNumber: company?.gstNumber || undefined,
-                        logoUrl: company?.logoUrl || undefined,
-                      },
-                      // Build terms from selectedTerms and customTerms, or fallback to legacy field
-                      (company?.selectedTerms?.length || company?.customTerms?.length)
-                        ? undefined // buildTermsString will be called by the service
-                        : company?.termsAndConditions
-                    )}
-                    buttonSize="sm"
-                    buttonText="Download Invoice"
-                  />
+                        // Ensure deviceInfo has proper fallback values
+                        deviceInfo: {
+                          type: selectedJob.deviceInfo?.type || 'Device',
+                          brand: selectedJob.deviceInfo?.brand || 'Unknown',
+                          model: selectedJob.deviceInfo?.model || '',
+                        },
+                        // Add company info for invoice generation
+                        companyInfo: company ? {
+                          name: company.companyName,
+                          tagline: company.tagline,
+                          phone: company.phone,
+                          alternatePhone: company.alternatePhone,
+                          email: company.email,
+                          address: company.address,
+                          city: company.city,
+                          state: company.state,
+                          pincode: company.pincode,
+                          gstNumber: company.gstNumber,
+                          logoUrl: company.logoUrl,
+                          website: company.website,
+                          selectedTerms: company.selectedTerms,
+                          customTerms: company.customTerms,
+                          termsAndConditions: company.termsAndConditions,
+                        } : undefined
+                      }
+                      downloadInvoice(jobCardWithCompanyInfo)
+                      toast.success("Invoice download started!")
+                    }}
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Download Invoice
+                  </Button>
                 </div>
               </div>
             )}

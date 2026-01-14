@@ -75,7 +75,15 @@ export function CustomerInfoSection({ form, onCustomerPhoneChange }: CustomerInf
             <FormItem>
               <FormLabel>Phone Number *</FormLabel>
               <FormControl>
-                <Input placeholder="Phone number" {...field} />
+                <Input 
+                  placeholder="Phone number" 
+                  {...field}
+                  onChange={(e) => {
+                    field.onChange(e)
+                    // Update customer history when phone changes
+                    onCustomerPhoneChange?.(e.target.value || null)
+                  }}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

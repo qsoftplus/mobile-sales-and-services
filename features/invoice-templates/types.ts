@@ -24,6 +24,7 @@ export interface InvoiceDeviceInfo {
   imei?: string
   condition?: string
   accessories?: string
+  images?: string[] // Device condition photos
 }
 
 export interface InvoiceLineItem {
@@ -31,6 +32,7 @@ export interface InvoiceLineItem {
   quantity: number
   unitPrice: number
   total: number
+  imageUrl?: string // Product/part image
 }
 
 export interface InvoiceCostBreakdown {
@@ -93,13 +95,13 @@ export interface TemplateInfo {
 }
 
 export type TemplateId = 
-  | 'modern-minimal'
-  | 'corporate-blue'
-  | 'dark-header'
-  | 'creative-sidebar'
-  | 'elegant-serif'
-  | 'tech-gradient'
-  | 'compact-grid'
-  | 'brand-focus'
-  | 'monochrome'
+  | 'modern-minimalist'
+  | 'corporate-pro'
+  | 'creative-studio'
+  | 'executive-suite'
+  | 'tech-forward'
+  | 'bold-impact'
+  | 'industrial-tech'
+  | 'classic-professional'
   | 'retail-receipt'
+  | 'soft-elegance'

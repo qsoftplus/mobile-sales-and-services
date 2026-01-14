@@ -191,6 +191,9 @@ importers:
       recharts:
         specifier: 2.15.4
         version: 2.15.4(react-dom@19.2.0(react@19.2.0))(react@19.2.0)
+      sharp:
+        specifier: ^0.34.5
+        version: 0.34.5
       snappy:
         specifier: latest
         version: 7.3.3
@@ -5134,8 +5137,7 @@ snapshots:
     dependencies:
       react-hook-form: 7.66.1(react@19.2.0)
 
-  '@img/colour@1.0.0':
-    optional: true
+  '@img/colour@1.0.0': {}
 
   '@img/sharp-darwin-arm64@0.34.5':
     optionalDependencies:
@@ -8205,7 +8207,6 @@ snapshots:
       '@img/sharp-win32-arm64': 0.34.5
       '@img/sharp-win32-ia32': 0.34.5
       '@img/sharp-win32-x64': 0.34.5
-    optional: true
 
   shebang-command@2.0.0:
     dependencies:

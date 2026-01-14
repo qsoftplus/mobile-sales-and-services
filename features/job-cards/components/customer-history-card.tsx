@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Smartphone, Clock, Wrench, User } from "lucide-react"
+import { Smartphone, Clock, Wrench, User, InfoIcon } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { firebaseService, COLLECTIONS } from "@/lib/firebase-service"
 import { cn } from "@/lib/utils"
@@ -35,13 +35,26 @@ export function CustomerHistoryCard({ customerPhone, excludeJobId, className }: 
   const { user } = useAuth()
 
   React.useEffect(() => {
+    // Reset history immediately when phone changes
+    setHistory([])
+    
     async function fetchCustomerHistory() {
+      // Don't fetch if no user or no phone
       if (!user?.uid || !customerPhone) {
-        setHistory([])
+        console.log('[CustomerHistory] No user or phone, clearing history')
+        return
+      }
+
+      // Validate phone is not empty string
+      const normalizedPhone = customerPhone.trim()
+      if (!normalizedPhone) {
+        console.log('[CustomerHistory] Empty phone, clearing history')
         return
       }
 
       setLoading(true)
+      console.log('[CustomerHistory] Fetching history for phone:', normalizedPhone)
+      
       try {
         // Fetch all job cards and filter by phone
         const allJobCards = await firebaseService.getAll<JobCardHistory>(
@@ -49,14 +62,19 @@ export function CustomerHistoryCard({ customerPhone, excludeJobId, className }: 
           COLLECTIONS.JOB_CARDS
         )
         
-        // Filter by customer phone, exclude current job if editing, and sort by date
+        // Filter by customer phone (normalized), exclude current job if editing
         const customerHistory = allJobCards
-          .filter((jc) => jc.phone === customerPhone && jc.id !== excludeJobId)
+          .filter((jc) => {
+            const jobPhone = jc.phone?.trim()
+            return jobPhone === normalizedPhone && jc.id !== excludeJobId
+          })
           .slice(0, 10) // Show max 10 recent entries
         
+        console.log('[CustomerHistory] Found', customerHistory.length, 'previous visits for', normalizedPhone)
         setHistory(customerHistory)
       } catch (error) {
         console.error("Error fetching customer history:", error)
+        setHistory([]) // Clear on error
       } finally {
         setLoading(false)
       }
@@ -120,14 +138,20 @@ export function CustomerHistoryCard({ customerPhone, excludeJobId, className }: 
   return (
     <Card className={cn("h-fit", className)}>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base font-medium flex items-center gap-2">
-          <User className="h-4 w-4 text-primary" />
-          Customer History
-        </CardTitle>
+        <div className="space-y-1">
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <User className="h-4 w-4 text-primary" />
+            Customer History
+          </CardTitle>
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <InfoIcon className="h-3 w-3" />
+            Showing history for phone: {customerPhone}
+          </p>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-xs text-muted-foreground">
-          {history.length} previous visit{history.length > 1 ? "s" : ""}
+        <p className="text-xs text-muted-foreground font-medium">
+          {history.length} previous visit{history.length > 1 ? "s" : ""} found
         </p>
         <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
           {history.map((item) => (

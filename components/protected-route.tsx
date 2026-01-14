@@ -12,7 +12,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const pathname = usePathname()
   
   // Public paths that don't require authentication
-  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/admin"]
+  const publicPaths = ["/", "/login", "/register", "/forgot-password", "/admin", "/terms", "/privacy"]
   const isPublicPath = publicPaths.includes(pathname) || pathname.startsWith("/admin")
 
   // Show loading state while checking auth
